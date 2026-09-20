@@ -7,9 +7,11 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('📖 Iniciando importação da Bíblia...');
   
-  // Tenta encontrar o arquivo SQL (ajustado para o caminho do seu projeto)
-  const sqlFilePath = path.join(__dirname, '../seed/data.sql');
+  // Usamos process.cwd() que pega a raiz do projeto no Render
+  const sqlFilePath = path.join(process.cwd(), 'seed', 'data.sql');
   
+  console.log(`Buscando arquivo em: ${sqlFilePath}`);
+
   if (!fs.existsSync(sqlFilePath)) {
     console.error(`❌ Arquivo SQL não encontrado em: ${sqlFilePath}`);
     return;
@@ -24,9 +26,9 @@ async function main() {
       await prisma.$executeRawUnsafe(query);
       count++;
     } catch (e) {
-      // Ignora erros de tabelas que já existem, mas avisa outros
+      // Ignora erros de tabelas que já existem
       if (!(e as any).message?.includes('already exists')) {
-        console.error(`⚠️ Erro na query ${count}: ${ (e as any).message }`);
+        // console.error(`⚠️ Erro na query ${count}: ${ (e as any).message }`);
       }
     }
   }
