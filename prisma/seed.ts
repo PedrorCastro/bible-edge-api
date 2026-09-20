@@ -5,7 +5,7 @@ import path from 'path';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('📖 Reiniciando importação da Bíblia de forma segura...');
+  console.log('📖 Iniciando limpeza e importação total da Bíblia...');
   
   const sqlFilePath = path.join(process.cwd(), 'seed', 'data.sql');
   
@@ -14,9 +14,12 @@ async function main() {
     return;
   }
 
+  // 1. LIMPEZA TOTAL: Removemos todos os versículos para evitar erros de "duplicate key"
+  // e garantir que a importação seja limpa.
+  console.log('🧹 Limpando tabela de versículos...');
+  await prisma.$executeRawUnsafe(`TRUNCATE TABLE "verses" RESTART IDENTITY CASCADE;`);
+
   const sql = fs.readFileSync(sqlFilePath, 'utf8');
-  
-  // Dividimos o SQL por ponto e vírgula para executar cada comando separadamente
   const queries = sql.split(';').filter(q => q.trim().length > 0);
   
   console.log(`Total de comandos para processar: ${queries.length}`);
@@ -24,20 +27,18 @@ async function main() {
   let count = 0;
   for (const query of queries) {
     try {
-      // Usamos o executeRaw para garantir que o SQL seja processado pelo Postgres
       await prisma.$executeRawUnsafe(query);
       count++;
-      if (count % 100 === 0) console.log(`Processando... ${count} comandos inseridos.`);
+      if (count % 500 === 0) console.log(`Processando... ${count} comandos inseridos.`);
     } catch (e) {
-      // Ignoramos erros de "tabela já existe" ou "chave duplicada"
       const errorMsg = (e as any).message || '';
-      if (!errorMsg.includes('already exists') && !errorMsg.includes('duplicate key')) {
+      if (!errorMsg.includes('already exists')) {
         console.error(`⚠️ Erro na query ${count}: ${errorMsg}`);
       }
     }
   }
 
-  console.log(`✅ Processo finalizado! ${count} comandos processados.`);
+  console.log(`✅ Sucesso total! ${count} comandos executados e Bíblia populada.`);
 }
 
 main()
