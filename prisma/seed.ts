@@ -5,7 +5,7 @@ import path from 'path';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('📖 Iniciando limpeza e importação total da Bíblia...');
+  console.log('📖 Iniciando importação robusta da Bíblia...');
   
   const sqlFilePath = path.join(process.cwd(), 'seed', 'data.sql');
   
@@ -14,14 +14,18 @@ async function main() {
     return;
   }
 
-  // 1. LIMPEZA TOTAL: Removemos todos os versículos para evitar erros de "duplicate key"
-  // e garantir que a importação seja limpa.
-  console.log('🧹 Limpando tabela de versículos...');
+  console.log('🧹 Limpando tabela de versículos para evitar duplicatas...');
   await prisma.$executeRawUnsafe(`TRUNCATE TABLE "verses" RESTART IDENTITY CASCADE;`);
 
-  const sql = fs.readFileSync(sqlFilePath, 'utf8');
+  let sql = fs.readFileSync(sqlFilePath, 'utf8');
+
+  // CORREÇÃO CRUCIAL: Remove quebras de linha dentro de aspas simples
+  // Isso evita o erro "unterminated quoted string"
+  sql = sql.replace(/'([\s\S]*?)(?=\n\s*INSERT|;|$)/g, (match) => {
+    return match.replace(/\r?\n/g, ' ');
+  });
+
   const queries = sql.split(';').filter(q => q.trim().length > 0);
-  
   console.log(`Total de comandos para processar: ${queries.length}`);
 
   let count = 0;
@@ -29,7 +33,7 @@ async function main() {
     try {
       await prisma.$executeRawUnsafe(query);
       count++;
-      if (count % 500 === 0) console.log(`Processando... ${count} comandos inseridos.`);
+      if (count % 500 === 0) console.log(`Processando... ${count} versículos inseridos.`);
     } catch (e) {
       const errorMsg = (e as any).message || '';
       if (!errorMsg.includes('already exists')) {
@@ -38,7 +42,7 @@ async function main() {
     }
   }
 
-  console.log(`✅ Sucesso total! ${count} comandos executados e Bíblia populada.`);
+  console.log(`✅ Sucesso total! ${count} comandos executados. A Bíblia agora está completa.`);
 }
 
 main()
